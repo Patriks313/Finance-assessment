@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Finance Excellence Summary</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1d2433;--muted:#5d6676;--line:#dde1e8;--navy:#17607f;--navyd:#0f3f55;--green:#00b050;--amber:#ffc000;--red:#ff0000;--grey:#c9ced6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 16px 80px}
+h1{margin:0 0 4px;font-size:26px;color:var(--navyd)}
+h2{margin:0 0 10px;font-size:19px;color:var(--navyd)}
+h3{margin:18px 0 6px;font-size:15px;color:var(--navy)}
+.sub{color:var(--muted);margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin:14px 0}
+.drop{border:2px dashed var(--navy);border-radius:12px;padding:22px;text-align:center;color:var(--navy);cursor:pointer;background:#f0f6f9}
+.drop.over{background:#dcecf3}
+.ctrl{display:flex;flex-wrap:wrap;gap:16px;align-items:end}
+.ctrl label{display:block;font-size:13px;color:var(--muted)}
+select,input[type=number]{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+input[type=number]{width:80px}
+button{font:inherit;font-weight:600;padding:8px 14px;border:0;border-radius:8px;background:var(--navy);color:#fff;cursor:pointer}
+button.ghost{background:#fff;color:var(--navy);border:1px solid var(--navy)}
+.stats{display:flex;gap:24px;flex-wrap:wrap;color:var(--muted)}
+.stats b{color:var(--ink);font-size:20px;display:block}
+#matrix svg{width:100%;height:auto;display:block}
+.del{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.del h3{margin:0 0 6px}
+.del label{display:flex;gap:8px;align-items:flex-start;font-size:14px;padding:3px 0}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:6px 8px;border-top:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600}
+td.n{text-align:right;white-space:nowrap}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600}
+.split{background:#fff1c2;color:#7a5a00}
+.rev{color:var(--muted);font-size:12px}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:4px}
+.comments li{margin:4px 0}
+.muted{color:var(--muted)}
+.empty{color:var(--muted);text-align:center;padding:30px}
+details summary{cursor:pointer;font-weight:600;color:var(--navyd);padding:6px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Finance Excellence Summary</h1>
+<p class="sub">Drop in the reply files. Everything stays on this computer; nothing is uploaded.</p>
+
+<div class="card">
+  <div class="drop" id="drop">Drop reply files (.csv) here, or click to choose<input type="file" id="file" accept=".csv,text/csv" multiple hidden></div>
+  <div class="stats" style="margin-top:12px">
+    <div><b id="sResp">0</b>respondents</div>
+    <div><b id="sAns">0</b>answers</div>
+    <div><b id="sFiles">0</b>files loaded</div>
+    <div style="margin-left:auto"><button class="ghost" id="clear">Clear all</button></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="ctrl">
+    <div><label for="fCode">Assessment</label><select id="fCode"></select></div>
+    <div><label for="fRole">Role</label><select id="fRole"><option value="">All roles</option></select></div>
+    <div><label for="tA">Amber from (%)</label><input id="tA" type="number" min="0" max="100" value="50"></div>
+    <div><label for="tG">Green from (%)</label><input id="tG" type="number" min="0" max="100" value="80"></div>
+    <div style="margin-left:auto;display:flex;gap:8px"><button id="png">Save picture</button><button class="ghost" id="xls">Save results for Excel</button></div>
+  </div>
+</div>
+
+<div class="card"><h2>Matrix</h2><div id="matrix"></div>
+  <p class="muted" style="font-size:13px;margin:10px 0 0">
+  <span class="sw" style="background:var(--green)"></span>green ·
+  <span class="sw" style="background:var(--amber)"></span>amber ·
+  <span class="sw" style="background:var(--red)"></span>red ·
+  <span class="sw" style="background:var(--grey)"></span>no answers.
+  Cell, row and column scores are the share of answers that indicate excellence. <b>How</b> = pillar answers per process (circle on the arrow). <b>What</b> = deliverables in place: counted only when both CEO and CFO answer yes (all roles, not affected by the role filter).</p>
+</div>
+
+
+<div class="card"><h2>Details by process</h2><div id="details"><div class="empty">No replies loaded yet.</div></div></div>
+</div>
+
+<script>
+// Finance excellence assessment — question bank (source: Finance_excellence_V6.docx, section 5)
+// good: the answer that indicates excellence ("yes" unless the question is reverse-scored)
+const BANK = {
+  version: "V6-2",
+  // Who answers what: how = processes whose pillar questions the role answers; del = answers the deliverables (what)
+  roles: [
+    { name: "CEO", how: ["PL", "MR", "FM", "FO"], del: true },
+    { name: "CFO", how: ["FO"], del: true },
+    { name: "Finance team", how: ["FO"], del: false },
+    { name: "Management team", how: ["PL", "MR", "FM"], del: false },
+    { name: "Business / line manager", how: ["PL", "MR", "FM"], del: false },
+    { name: "Board", how: ["PL", "MR", "FM"], del: false },
+    { name: "Other", how: ["PL", "MR", "FM"], del: false } ],
+  pillars: ["Clarity", "Partnership", "Communication"],
+  processes: [
+    { id: "PL", name: "Planning",
+      deliverables: [
+        { id: "PL-D1", text: "There is both an annual budget process and a forecast process" },
+        { id: "PL-D2", text: "The business drives all relevant input for planning" },
+        { id: "PL-D3", text: "The forecast is updated monthly" },
+        { id: "PL-D4", text: "The organization has a rolling forecast of more than 12 months" },
+        { id: "PL-D5", text: "Planning includes details and drivers for products and customers" },
+        { id: "PL-D6", text: "Planning includes details on individual employees" } ],
+      Clarity: { q: [
+        "Is it clear to you what content you need to deliver in the process?",
+        "Is it clear to you when your deliverables are due?",
+        "Is it clear to you what the goal of the process is?",
+        "Do you think everyone is aware of what content they should deliver in the process?",
+        "Do you think everyone is aware of when their deliverables are due?",
+        "Do you think everyone is aware of what the goal of the process is?" ],
+        followup: ["What content do you deliver in the process?", "What are the deadlines for your deliverables?", "What is the goal of the process?"] },
+      Partnership: { q: [
+        "Is it clear to you what finance contributes to the process?",
+        "Do you think finance is clear about what its contribution is?",
+        "Do you know who in finance you should partner with?",
+        "Are you satisfied with your partnership with finance in the planning process?" ],
+        followup: ["What do you see as finance’s main contribution to the planning process?", "What is missing from finance’s contribution?", "How could finance support your processes better?"] },
+      Communication: { q: [
+        "Can you easily access documentation on the planning process?",
+        "Do you think everyone can easily access documentation on the planning process?",
+        "Can you easily follow the current status and outcome of the planning process?" ],
+        followup: ["Where is the documentation for the planning process?", "Where do you find reporting on the current planning process?", "Who has access to planning reports?"] } },
+
+    { id: "MR", name: "Reporting",
+      deliverables: [
+        { id: "MR-D1", text: "Monthly reports are distributed within 10 workdays of the close" },
+        { id: "MR-D2", text: "The monthly report contains both financial and operational data" },
+        { id: "MR-D3", text: "The monthly report includes KPIs linked to strategy" },
+        { id: "MR-D4", text: "The monthly report includes relevant explanations of the result" },
+        { id: "MR-D5", text: "A daily revenue flash is distributed within 3 workdays of the close" },
+        { id: "MR-D6", text: "The monthly report includes the forecast" } ],
+      Clarity: { q: [
+        "Is it clear to you which reports, or sections of reports, are meant to track your business?",
+        "Is it clear to you what the organization’s KPIs are?",
+        ["Do you track financial or operational data separately in your own spreadsheets?", "no"],
+        ["Do you generally question management reports?", "no"],
+        ["Do management reports often leave your questions unanswered?", "no"] ],
+        followup: ["Which operational KPIs are reported?", "What data do you track separately in your own spreadsheets?", "What data in management reports do you generally question?", "What is a common question that management reports can’t answer?"] },
+      Partnership: { q: [
+        "Has finance recently flagged a deviation or opportunity before it became a problem?",
+        "Does finance consistently highlight issues or opportunities in your business that you didn’t already know about?",
+        "Can you name one person in finance who understands your business?",
+        "Do your P&L discussions with finance focus on the future?",
+        "Does your finance partner take part in your management meetings?",
+        "Did you talk to finance this month about something that wasn’t a problem?" ],
+        followup: ["What deviation or opportunity did finance recently flag before it became a problem?", "What does your finance partner contribute in your management meetings?"] },
+      Communication: { q: [
+        "Do you know where monthly reports are published?",
+        "Are you satisfied with the drill-down available in reports?",
+        ["Are there any reports you wouldn’t notice if they stopped?", "no"],
+        "Are you happy with when reports become available?",
+        "Do you use official reports as the basis for your own reporting in the organization (up and down)?" ],
+        followup: ["Where are monthly reports published?", "What drill-down are you missing in reports?", "Which reports wouldn’t you notice if they stopped?", "What do you use besides official reports for your own reporting?"] } },
+
+    { id: "FM", name: "Financial management",
+      deliverables: [
+        { id: "FM-D1", text: "The CFO is active and contributes in the management team" },
+        { id: "FM-D2", text: "The CFO is active and contributes in board meetings" },
+        { id: "FM-D3", text: "The CFO is included and active in strategic discussions and decisions" },
+        { id: "FM-D4", text: "The CFO drives cross-functional discussions and decisions" },
+        { id: "FM-D5", text: "The CFO is seen as a key advisor to the CEO" } ],
+      Clarity: { q: [
+        "Do you see the CFO leading clarity in the organization?",
+        "Do you see the CFO driving an agenda of clarity in the management team?",
+        "Is the CFO’s mandate for financial management clear?",
+        ["Have there been any discussions recently where financial ownership was unclear?", "no"] ],
+        followup: ["Describe a recent financial decision where ownership was unclear.", "Describe how the CFO drives clarity in the management team.", "What is the CFO’s mandate for financial management?"] },
+      Partnership: { q: [
+        "Do you see the CFO as objective in the management team?",
+        "Do you see the CFO focusing on the right things?",
+        "Do you see the CFO managing the early warning system effectively?",
+        "Does the management team look to the CFO for advice on strategic financial matters?",
+        ["Was there a strategic decision recently where the CFO was brought in after the decision was made?", "no"] ],
+        followup: ["What role does the CFO play in the early warning system?", "On which strategic financial matters does the management team look to the CFO for advice?", "Which strategic decision was the CFO brought into after it was made?"] },
+      Communication: { q: [
+        ["Does the CFO need to adjust how they communicate?", "no"],
+        "Is it clear where the CFO communicates?" ],
+        followup: [] } },
+
+    { id: "FO", name: "Finance organization",
+      deliverables: [
+        { id: "FO-D1", text: "External reports are delivered on time and with quality" },
+        { id: "FO-D2", text: "Taxes are filed and paid on time" },
+        { id: "FO-D3", text: "The books are closed each month before workday 8" },
+        { id: "FO-D4", text: "Financial policies and guidelines are available to the organization" } ],
+      Clarity: { q: [
+        "Do you have a clear job description?",
+        "Do you think everyone in finance has a clear job description?",
+        "Do you know which systems finance owns?",
+        "Do you know who the system owner of each finance system is?" ],
+        followup: ["What teams are there within finance?", "Which systems does finance own?", "Who is the system owner, technical owner, data owner and user lead for each finance system?"] },
+      Partnership: { q: [
+        "Do you think everyone in finance sees themselves as a partner to the business?",
+        "Have you mapped your relationships outside finance?",
+        "Do you think all finance staff have mapped their relationships outside finance?",
+        "Do you see finance developing its partnerships outside finance?",
+        ["Do you know of any part of the organization that has no contact with finance?", "no"],
+        "Do you think finance adapts accounting to business needs in a timely manner?" ],
+        followup: ["How does finance develop its partnerships with other parts of the company?", "Which part of the business has no contact with finance?", "When was finance’s stakeholder map last updated?"] },
+      Communication: { q: [
+        "Do you have visibility of all financial reports?",
+        "Do you see clear ownership of each financial report?",
+        "Are reports available in BI tools?",
+        ["Do you think undocumented Excel reports are a significant risk?", "no"],
+        "Do you think everyone in the organization has a clear view of the general finance processes, such as invoicing (O2C), accounts payable (P2P) and the other processes involved in the monthly close?" ],
+        followup: ["Where can reports be found?", "Who owns each financial report, and is this documented?", "Where are the key financial processes described, and who has access to them?"] } }
+  ]
+};
+// Normalise: give every question an id and a good answer
+for (const p of BANK.processes) {
+  for (const d of p.deliverables) d.good = d.good || "yes";
+  BANK.pillars.forEach((pil, pi) => {
+    p[pil].q = p[pil].q.map((x, i) => {
+      const [text, good] = Array.isArray(x) ? x : [x, "yes"];
+      return { id: `${p.id}-${pil[0]}${pil === "Communication" ? "o" : ""}${i + 1}`, text, good };
+    });
+  });
+}
+
+const $ = s => document.querySelector(s);
+const store = { get(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }, set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} } };
+let rows = [];            // all answer rows
+let files = 0;
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function parseCSV(text) {
+  text = text.replace(/^﻿/, "");
+  const out = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i+1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true;
+    else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i+1] === "\n") i++; row.push(cell); out.push(row); row = []; cell = ""; }
+    else cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); out.push(row); }
+  const head = out.shift() || [];
+  return out.filter(r => r.length > 1).map(r => Object.fromEntries(head.map((h, i) => [h, r[i] ?? ""])));
+}
+function addFiles(list) {
+  let pending = list.length;
+  for (const f of list) {
+    const rd = new FileReader();
+    rd.onload = () => {
+      const recs = parseCSV(rd.result).filter(r => r.respondent && r.qid);
+      const seen = new Set(rows.map(r => r.respondent + "|" + r.qid));
+      for (const r of recs) { const k = r.respondent + "|" + r.qid; if (!seen.has(k)) { rows.push(r); seen.add(k); } }
+      files++;
+      if (--pending === 0) refreshFilters();
+    };
+    rd.readAsText(f);
+  }
+}
+const drop = $("#drop"), fi = $("#file");
+drop.onclick = () => fi.click();
+fi.onchange = () => { addFiles([...fi.files]); fi.value = ""; };
+drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
+drop.ondragleave = () => drop.classList.remove("over");
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); addFiles([...e.dataTransfer.files].filter(f => /\.csv$/i.test(f.name))); };
+$("#clear").onclick = () => { rows = []; files = 0; refreshFilters(); };
+
+function refreshFilters() {
+  const codes = [...new Set(rows.map(r => r.assessment || "(no code)"))].sort();
+  const cur = $("#fCode").value;
+  $("#fCode").innerHTML = codes.length ? codes.map(c => `<option${c === cur ? " selected" : ""}>${esc(c)}</option>`).join("") : "<option>—</option>";
+  const roles = [...new Set(rows.map(r => r.role || "(no role)"))].sort();
+  const cr = $("#fRole").value;
+  $("#fRole").innerHTML = '<option value="">All roles</option>' + roles.map(c => `<option${c === cr ? " selected" : ""}>${esc(c)}</option>`).join("");
+  render();
+}
+["fCode","fRole","tA","tG"].forEach(id => $("#" + id).addEventListener("input", () => render()));
+
+function current() {
+  const code = $("#fCode").value, role = $("#fRole").value;
+  return rows.filter(r => (r.assessment || "(no code)") === code && (!role || (r.role || "(no role)") === role));
+}
+const thr = () => ({ a: +$("#tA").value || 0, g: +$("#tG").value || 0 });
+function colour(p) { if (p == null) return "#c9ced6"; const t = thr(); return p >= t.g ? "#00b050" : p >= t.a ? "#ffc000" : "#ff0000"; }
+function score(list) { const ans = list.filter(r => r.answer === "yes" || r.answer === "no"); if (!ans.length) return null; return Math.round(100 * ans.filter(r => r.answer === r.good).length / ans.length); }
+const fmt = p => p == null ? "–" : p + "%";
+
+// Deliverables (what): answered by CEO and CFO; in place only when both say the good answer
+const codeRows = () => rows.filter(r => (r.assessment || "(no code)") === $("#fCode").value);
+function delStatus(d, list) {
+  const by = role => { const a = list.filter(r => r.qid === d.id && r.role === role && (r.answer === "yes" || r.answer === "no")); return a.length ? a.every(r => r.answer === d.good) : null; };
+  const ceo = by("CEO"), cfo = by("CFO");
+  return { ceo, cfo, ok: ceo === true && cfo === true, disagree: ceo !== null && cfo !== null && ceo !== cfo, missing: ceo === null || cfo === null };
+}
+function whatScore(p, list) {
+  const n = p.deliverables.length;
+  const ok = p.deliverables.filter(d => delStatus(d, list).ok).length;
+  return { ok, n, pct: Math.round(100 * ok / n) };
+}
+
+function matrixSVG(data) {
+  const W = 1340, rowH = 70, top = 110, gap = 78, left = 40, labelW = 360, colW = 130, colGap = 110;
+  const cx = i => left + labelW + i * (colW + colGap);
+  const arrowEnd = cx(2) + colW + 90;
+  const rowsY = i => top + 40 + i * (rowH + gap);
+  const bottom = rowsY(3) + rowH;
+  let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${bottom + 170}" font-family="Segoe UI, Calibri, Arial, sans-serif">`;
+  s += `<rect width="100%" height="100%" fill="#ffffff"/>`;
+  // column bodies
+  BANK.pillars.forEach((pil, i) => {
+    const x = cx(i);
+    s += `<text x="${x + colW / 2}" y="${top - 30}" font-size="30" text-anchor="middle" fill="#000">${pil}</text>`;
+    s += `<rect x="${x}" y="${top}" width="${colW}" height="${bottom - top + 30}" fill="#17607f" stroke="#0e2a3a" stroke-width="3"/>`;
+    s += `<polygon points="${x - 48},${bottom + 30} ${x + colW + 48},${bottom + 30} ${x + colW / 2},${bottom + 160}" fill="#17607f" stroke="#0e2a3a" stroke-width="3"/>`;
+    s += `<circle cx="${x + colW / 2}" cy="${bottom + 75}" r="34" fill="none" stroke="#fff" stroke-width="3"/>`;
+    s += `<text x="${x + colW / 2}" y="${bottom + 84}" font-size="${data.cols[i] == null ? 26 : 22}" text-anchor="middle" fill="#fff">${fmt(data.cols[i])}</text>`;
+  });
+  // process arrows
+  BANK.processes.forEach((p, r) => {
+    const y = rowsY(r);
+    s += `<polygon points="${left},${y} ${arrowEnd},${y} ${arrowEnd},${y - 34} ${arrowEnd + 70},${y + rowH / 2} ${arrowEnd},${y + rowH + 34} ${arrowEnd},${y + rowH} ${left},${y + rowH}" fill="#ffff00" stroke="#0e2a3a" stroke-width="3"/>`;
+    s += `<text x="${left + 16}" y="${y + rowH / 2 + 11}" font-size="30" fill="#000">${esc(p.name)}</text>`;
+    BANK.pillars.forEach((pil, i) => {
+      const v = data.cells[r][i];
+      s += `<rect x="${cx(i)}" y="${y}" width="${colW}" height="${rowH}" fill="${colour(v)}" stroke="#0e2a3a" stroke-width="3"/>`;
+      s += `<text x="${cx(i) + colW / 2}" y="${y + rowH / 2 + 8}" font-size="22" text-anchor="middle" fill="#000" opacity=".75">${fmt(v)}</text>`;
+    });
+    // how circle on arrow head
+    const hx = arrowEnd + 16, hy = y + rowH / 2;
+    s += `<circle cx="${hx}" cy="${hy}" r="34" fill="${data.rows[r] == null ? "#ffff00" : colour(data.rows[r])}" stroke="#fff" stroke-width="3"/>`;
+    s += `<text x="${hx}" y="${hy + 8}" font-size="21" text-anchor="middle" fill="#000">${fmt(data.rows[r])}</text>`;
+    // what badge after the arrow
+    const w = data.what[r], wx = arrowEnd + 112;
+    s += `<rect x="${wx}" y="${hy - 30}" width="96" height="60" rx="12" fill="${colour(w.pct)}" stroke="#0e2a3a" stroke-width="3"/>`;
+    s += `<text x="${wx + 48}" y="${hy + 9}" font-size="24" text-anchor="middle" fill="#000">${w.ok}/${w.n}</text>`;
+  });
+  const hx0 = arrowEnd + 16, wx0 = arrowEnd + 160;
+  s += `<text x="${hx0}" y="${top - 30}" font-size="22" text-anchor="middle" fill="#5d6676">How</text>`;
+  s += `<text x="${wx0}" y="${top - 30}" font-size="22" text-anchor="middle" fill="#5d6676">What</text>`;
+  return s + `</svg>`;
+}
+
+function render() {
+  const list = current();
+  const resp = new Set(list.map(r => r.respondent));
+  $("#sResp").textContent = resp.size;
+  $("#sAns").textContent = list.filter(r => r.answer === "yes" || r.answer === "no").length;
+  $("#sFiles").textContent = files;
+  const qs = list.filter(r => !/-comment$/.test(r.qid) && r.pillar !== "Deliverables");
+  const data = {
+    cells: BANK.processes.map(p => BANK.pillars.map(pil => score(qs.filter(r => r.process === p.name && r.pillar === pil)))),
+    rows: BANK.processes.map(p => score(qs.filter(r => r.process === p.name))),
+    cols: BANK.pillars.map(pil => score(qs.filter(r => r.pillar === pil))),
+    what: BANK.processes.map(p => whatScore(p, codeRows()))
+  };
+  $("#matrix").innerHTML = matrixSVG(data);
+  renderDetails(list);
+}
+
+function renderDetails(list) {
+  if (!list.length) { $("#details").innerHTML = '<div class="empty">No replies loaded yet.</div>'; return; }
+  let h = "";
+  for (const p of BANK.processes) {
+    h += `<details open><summary>${esc(p.name)}</summary>`;
+    for (const pil of BANK.pillars) {
+      h += `<h3>${pil}</h3><table><tr><th>Question</th><th class="n">Answers</th><th class="n">Good</th><th></th></tr>`;
+      for (const q of p[pil].q) {
+        const ans = list.filter(r => r.qid === q.id && (r.answer === "yes" || r.answer === "no"));
+        const pct = ans.length ? Math.round(100 * ans.filter(r => r.answer === q.good).length / ans.length) : null;
+        const split = ans.length >= 3 && pct >= 35 && pct <= 65;
+        h += `<tr><td>${esc(q.text)}${q.good === "no" ? ' <span class="rev">(“no” is good)</span>' : ""}</td><td class="n">${ans.length}</td>
+          <td class="n"><span class="sw" style="background:${colour(pct)}"></span>${fmt(pct)}</td><td>${split ? '<span class="pill split">split</span>' : ""}</td></tr>`;
+      }
+      h += `</table>`;
+      const cm = list.filter(r => r.qid === `${p.id}-${pil}-comment` && r.answer);
+      if (cm.length) h += `<ul class="comments">${cm.map(c => `<li>${esc(c.answer)} <span class="muted">— ${esc(c.role || "no role")}</span></li>`).join("")}</ul>`;
+    }
+    const cl = codeRows(); const yn = v => v === null ? '<span class="muted">–</span>' : v ? "Yes" : "No";
+    h += `<h3>Deliverables (what)</h3><table><tr><th>Deliverable</th><th class="n">CEO</th><th class="n">CFO</th><th class="n">In place</th><th></th></tr>`;
+    for (const d of p.deliverables) {
+      const st = delStatus(d, cl);
+      h += `<tr><td>${esc(d.text)}</td><td class="n">${yn(st.ceo)}</td><td class="n">${yn(st.cfo)}</td>
+        <td class="n"><span class="sw" style="background:${st.ok ? "#00b050" : "#ff0000"}"></span>${st.ok ? "Yes" : "No"}</td>
+        <td>${st.disagree ? '<span class="pill split">CEO and CFO disagree</span>' : st.missing ? '<span class="pill split">missing answer</span>' : ""}</td></tr>`;
+    }
+    h += `</table></details>`;
+  }
+  $("#details").innerHTML = h;
+}
+
+function download(name, blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+$("#png").onclick = () => {
+  const svg = $("#matrix svg"); const vb = svg.viewBox.baseVal;
+  const img = new Image(), scale = 2;
+  img.onload = () => {
+    const c = document.createElement("canvas"); c.width = vb.width * scale; c.height = vb.height * scale;
+    const g = c.getContext("2d"); g.drawImage(img, 0, 0, c.width, c.height);
+    c.toBlob(b => download(`matrix_${$("#fCode").value.replace(/[^\w-]+/g, "_")}.png`, b));
+  };
+  const cl = svg.cloneNode(true); cl.setAttribute("width", vb.width); cl.setAttribute("height", vb.height);
+  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(new XMLSerializer().serializeToString(cl));
+};
+$("#xls").onclick = () => {
+  const list = current();
+  const cell = v => { v = String(v ?? ""); return /[",\n\r;]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const head = ["assessment","respondent","role","submitted","bank","process","pillar","qid","question","answer","good"];
+  const out = [head, ...list.map(r => head.map(k => r[k]))];
+  download(`results_${$("#fCode").value.replace(/[^\w-]+/g, "_")}.csv`, new Blob(["﻿" + out.map(r => r.map(cell).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" }));
+};
+refreshFilters();
+</script>
+</body>
+</html>
