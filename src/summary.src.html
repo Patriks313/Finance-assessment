@@ -74,12 +74,12 @@ details summary{cursor:pointer;font-weight:600;color:var(--navyd);padding:6px 0}
   <span class="sw" style="background:var(--amber)"></span>amber ·
   <span class="sw" style="background:var(--red)"></span>red ·
   <span class="sw" style="background:var(--grey)"></span>no answers.
-  Cell scores are the share of answers that indicate excellence. <b>How</b> (circle on the arrow) = average of the three pillar scores for the process, each pillar counting equally. <b>Pillar total</b> (circle at the bottom) = average of the four process scores in that column, each process counting equally. <b>What</b> = deliverables in place: counted only when both CEO and CFO answer yes (all roles, not affected by the role filter).</p>
+  Cell scores are the share of answers that indicate excellence. <b>Pillar total</b> (circle at the bottom) = average of the four process scores in that column, each process counting equally. How and What per process are shown in the graph below.</p>
 </div>
 
 <div class="card"><h2>How / What</h2><div id="graph"></div>
   <p class="muted" style="font-size:13px;margin:10px 0 0">
-  Each process is placed by <b>What</b> (% of deliverables in place, across) and <b>How</b> (equal-pillar % achieved, up). Dashed lines mark the amber and green thresholds.
+  Each process is placed by <b>What</b> (% of deliverables in place, across) and <b>How</b> (average of its three pillar scores, each pillar counting equally, up). A deliverable is in place when the CEO and/or CFO say yes and neither says no; if only one has answered, that answer counts (flagged in the details). What is not affected by the role filter. Dashed lines mark the amber and green thresholds.
   What moves in whole deliverables (e.g. 25-point steps for 4 deliverables) and rests on CEO + CFO agreement; How rests on all respondents' answers.</p>
 </div>
 
@@ -157,7 +157,7 @@ const codeRows = () => rows.filter(r => (r.assessment || "(no code)") === $("#fC
 function delStatus(d, list) {
   const by = role => { const a = list.filter(r => r.qid === d.id && r.role === role && (r.answer === "yes" || r.answer === "no")); return a.length ? a.every(r => r.answer === d.good) : null; };
   const ceo = by("CEO"), cfo = by("CFO");
-  return { ceo, cfo, ok: ceo === true && cfo === true, disagree: ceo !== null && cfo !== null && ceo !== cfo, missing: ceo === null || cfo === null };
+  return { ceo, cfo, ok: (ceo === true || cfo === true) && ceo !== false && cfo !== false, disagree: ceo !== null && cfo !== null && ceo !== cfo, missing: ceo === null || cfo === null };
 }
 function whatScore(p, list) {
   const n = p.deliverables.length;
@@ -166,9 +166,9 @@ function whatScore(p, list) {
 }
 
 function matrixSVG(data) {
-  const W = 1340, rowH = 70, top = 110, gap = 78, left = 40, labelW = 360, colW = 130, colGap = 110;
+  const W = 1140, rowH = 70, top = 110, gap = 78, left = 40, labelW = 360, colW = 130, colGap = 110;
   const cx = i => left + labelW + i * (colW + colGap);
-  const arrowEnd = cx(2) + colW + 90;
+  const barEnd = cx(2) + colW + 40;
   const rowsY = i => top + 40 + i * (rowH + gap);
   const bottom = rowsY(3) + rowH;
   let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${bottom + 170}" font-family="Segoe UI, Calibri, Arial, sans-serif">`;
@@ -185,25 +185,14 @@ function matrixSVG(data) {
   // process arrows
   BANK.processes.forEach((p, r) => {
     const y = rowsY(r);
-    s += `<polygon points="${left},${y} ${arrowEnd},${y} ${arrowEnd},${y - 34} ${arrowEnd + 70},${y + rowH / 2} ${arrowEnd},${y + rowH + 34} ${arrowEnd},${y + rowH} ${left},${y + rowH}" fill="#ffff00" stroke="#0e2a3a" stroke-width="3"/>`;
+    s += `<rect x="${left}" y="${y}" width="${barEnd - left}" height="${rowH}" fill="#ffff00" stroke="#0e2a3a" stroke-width="3"/>`;
     s += `<text x="${left + 16}" y="${y + rowH / 2 + 11}" font-size="30" fill="#000">${esc(p.name)}</text>`;
     BANK.pillars.forEach((pil, i) => {
       const v = data.cells[r][i];
       s += `<rect x="${cx(i)}" y="${y}" width="${colW}" height="${rowH}" fill="${colour(v)}" stroke="#0e2a3a" stroke-width="3"/>`;
       s += `<text x="${cx(i) + colW / 2}" y="${y + rowH / 2 + 8}" font-size="22" text-anchor="middle" fill="#000" opacity=".75">${fmt(v)}</text>`;
     });
-    // how circle on arrow head
-    const hx = arrowEnd + 16, hy = y + rowH / 2;
-    s += `<circle cx="${hx}" cy="${hy}" r="34" fill="${data.rows[r] == null ? "#ffff00" : colour(data.rows[r])}" stroke="#fff" stroke-width="3"/>`;
-    s += `<text x="${hx}" y="${hy + 8}" font-size="21" text-anchor="middle" fill="#000">${fmt(data.rows[r])}</text>`;
-    // what badge after the arrow
-    const w = data.what[r], wx = arrowEnd + 112;
-    s += `<rect x="${wx}" y="${hy - 30}" width="96" height="60" rx="12" fill="${colour(w.pct)}" stroke="#0e2a3a" stroke-width="3"/>`;
-    s += `<text x="${wx + 48}" y="${hy + 9}" font-size="24" text-anchor="middle" fill="#000">${w.ok}/${w.n}</text>`;
   });
-  const hx0 = arrowEnd + 16, wx0 = arrowEnd + 160;
-  s += `<text x="${hx0}" y="${top - 30}" font-size="22" text-anchor="middle" fill="#5d6676">How</text>`;
-  s += `<text x="${wx0}" y="${top - 30}" font-size="22" text-anchor="middle" fill="#5d6676">What</text>`;
   return s + `</svg>`;
 }
 
@@ -298,7 +287,7 @@ function renderDetails(list) {
       const st = delStatus(d, cl);
       h += `<tr><td>${esc(d.text)}</td><td class="n">${yn(st.ceo)}</td><td class="n">${yn(st.cfo)}</td>
         <td class="n"><span class="sw" style="background:${st.ok ? "#00b050" : "#ff0000"}"></span>${st.ok ? "Yes" : "No"}</td>
-        <td>${st.disagree ? '<span class="pill split">CEO and CFO disagree</span>' : st.missing ? '<span class="pill split">missing answer</span>' : ""}</td></tr>`;
+        <td>${st.disagree ? '<span class="pill split">CEO and CFO disagree</span>' : st.missing ? `<span class="pill split">${st.ceo === null && st.cfo === null ? "no answers" : "only " + (st.ceo === null ? "CFO" : "CEO") + " answered"}</span>` : ""}</td></tr>`;
     }
     h += `</table></details>`;
   }
