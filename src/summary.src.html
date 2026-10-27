@@ -25,6 +25,7 @@ button.ghost{background:#fff;color:var(--navy);border:1px solid var(--navy)}
 .stats{display:flex;gap:24px;flex-wrap:wrap;color:var(--muted)}
 .stats b{color:var(--ink);font-size:20px;display:block}
 #matrix svg{width:100%;height:auto;display:block}
+#graph svg{width:100%;max-width:820px;height:auto;display:block;margin:0 auto}
 .del{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
 .del h3{margin:0 0 6px}
 .del label{display:flex;gap:8px;align-items:flex-start;font-size:14px;padding:3px 0}
@@ -63,7 +64,7 @@ details summary{cursor:pointer;font-weight:600;color:var(--navyd);padding:6px 0}
     <div><label for="fRole">Role</label><select id="fRole"><option value="">All roles</option></select></div>
     <div><label for="tA">Amber from (%)</label><input id="tA" type="number" min="0" max="100" value="50"></div>
     <div><label for="tG">Green from (%)</label><input id="tG" type="number" min="0" max="100" value="80"></div>
-    <div style="margin-left:auto;display:flex;gap:8px"><button id="png">Save picture</button><button class="ghost" id="xls">Save results for Excel</button></div>
+    <div style="margin-left:auto;display:flex;gap:8px"><button id="png">Save pictures</button><button class="ghost" id="xls">Save results for Excel</button></div>
   </div>
 </div>
 
@@ -73,7 +74,13 @@ details summary{cursor:pointer;font-weight:600;color:var(--navyd);padding:6px 0}
   <span class="sw" style="background:var(--amber)"></span>amber ·
   <span class="sw" style="background:var(--red)"></span>red ·
   <span class="sw" style="background:var(--grey)"></span>no answers.
-  Cell, row and column scores are the share of answers that indicate excellence. <b>How</b> = pillar answers per process (circle on the arrow). <b>What</b> = deliverables in place: counted only when both CEO and CFO answer yes (all roles, not affected by the role filter).</p>
+  Cell and column scores are the share of answers that indicate excellence. <b>How</b> (circle on the arrow) = average of the three pillar scores for the process, each pillar counting equally. <b>What</b> = deliverables in place: counted only when both CEO and CFO answer yes (all roles, not affected by the role filter).</p>
+</div>
+
+<div class="card"><h2>How / What</h2><div id="graph"></div>
+  <p class="muted" style="font-size:13px;margin:10px 0 0">
+  Each process is placed by <b>What</b> (% of deliverables in place, across) and <b>How</b> (equal-pillar % achieved, up). Dashed lines mark the amber and green thresholds.
+  What moves in whole deliverables (e.g. 25-point steps for 4 deliverables) and rests on CEO + CFO agreement; How rests on all respondents' answers.</p>
 </div>
 
 
@@ -200,6 +207,51 @@ function matrixSVG(data) {
   return s + `</svg>`;
 }
 
+function graphSVG(data) {
+  const W = 1000, H = 760, L = 150, R = 60, T = 50, B = 120;
+  const pw = W - L - R, ph = H - T - B;
+  const X = v => L + pw * v / 100, Y = v => T + ph * (1 - v / 100);
+  const t = thr();
+  let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" font-family="Segoe UI, Calibri, Arial, sans-serif">`;
+  s += `<rect width="100%" height="100%" fill="#ffffff"/>`;
+  // threshold guides
+  [[t.a, "#ffc000"], [t.g, "#00b050"]].forEach(([v, c]) => {
+    if (v > 0 && v < 100) {
+      s += `<line x1="${X(v)}" y1="${T}" x2="${X(v)}" y2="${T + ph}" stroke="${c}" stroke-width="2" stroke-dasharray="8 6"/>`;
+      s += `<line x1="${L}" y1="${Y(v)}" x2="${L + pw}" y2="${Y(v)}" stroke="${c}" stroke-width="2" stroke-dasharray="8 6"/>`;
+    }
+  });
+  // axes
+  s += `<line x1="${L}" y1="${T - 10}" x2="${L}" y2="${T + ph}" stroke="#17607f" stroke-width="4"/>`;
+  s += `<line x1="${L}" y1="${T + ph}" x2="${L + pw + 10}" y2="${T + ph}" stroke="#17607f" stroke-width="4"/>`;
+  [0, 25, 50, 75, 100].forEach(v => {
+    s += `<text x="${X(v)}" y="${T + ph + 34}" font-size="20" text-anchor="middle" fill="#5d6676">${v}</text>`;
+    s += `<text x="${L - 14}" y="${Y(v) + 7}" font-size="20" text-anchor="end" fill="#5d6676">${v}</text>`;
+  });
+  s += `<text x="${L + pw / 2}" y="${H - 30}" font-size="28" text-anchor="middle" fill="#000">Delivery (What) %</text>`;
+  s += `<text transform="translate(44 ${T + ph / 2}) rotate(-90)" font-size="28" text-anchor="middle" fill="#000">Pillars (How) %</text>`;
+  // bubbles, nudged apart when they would overlap
+  const pts = [];
+  BANK.processes.forEach((p, i) => {
+    const how = data.rows[i], what = data.what[i].pct;
+    if (how == null) return;
+    let x = X(what), y = Y(how);
+    for (let k = 0; k < 6 && pts.some(q => Math.abs(q.x - x) < 170 && Math.abs(q.y - y) < 90); k++) y += (y > T + ph / 2 ? -95 : 95);
+    pts.push({ x, y, p, how, w: data.what[i] });
+  });
+  pts.forEach(({ x, y, p, how, w }) => {
+    const name = p.name.split(" ");
+    s += `<ellipse cx="${x}" cy="${y}" rx="85" ry="44" fill="#17607f" stroke="#0e2a3a" stroke-width="3"/>`;
+    if (name.length > 1) {
+      s += `<text x="${x}" y="${y - 14}" font-size="20" text-anchor="middle" fill="#fff">${esc(name[0])}</text>`;
+      s += `<text x="${x}" y="${y + 9}" font-size="20" text-anchor="middle" fill="#fff">${esc(name.slice(1).join(" "))}</text>`;
+    } else s += `<text x="${x}" y="${y + 3}" font-size="21" text-anchor="middle" fill="#fff">${esc(p.name)}</text>`;
+    s += `<text x="${x}" y="${y + 31}" font-size="15" text-anchor="middle" fill="#dbe9f0">${how}% · ${w.ok}/${w.n}</text>`;
+  });
+  if (!pts.length) s += `<text x="${L + pw / 2}" y="${T + ph / 2}" font-size="24" text-anchor="middle" fill="#5d6676">No replies loaded yet</text>`;
+  return s + `</svg>`;
+}
+
 function render() {
   const list = current();
   const resp = new Set(list.map(r => r.respondent));
@@ -209,11 +261,14 @@ function render() {
   const qs = list.filter(r => !/-comment$/.test(r.qid) && r.pillar !== "Deliverables");
   const data = {
     cells: BANK.processes.map(p => BANK.pillars.map(pil => score(qs.filter(r => r.process === p.name && r.pillar === pil)))),
-    rows: BANK.processes.map(p => score(qs.filter(r => r.process === p.name))),
+    rows: null,
     cols: BANK.pillars.map(pil => score(qs.filter(r => r.pillar === pil))),
     what: BANK.processes.map(p => whatScore(p, codeRows()))
   };
+  // How per process = equal-pillar average of the pillar scores that have answers
+  data.rows = data.cells.map(c => { const v = c.filter(x => x != null); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; });
   $("#matrix").innerHTML = matrixSVG(data);
+  $("#graph").innerHTML = graphSVG(data);
   renderDetails(list);
 }
 
@@ -253,17 +308,18 @@ function download(name, blob) {
   const a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
-$("#png").onclick = () => {
-  const svg = $("#matrix svg"); const vb = svg.viewBox.baseVal;
+function savePNG(svg, name) {
+  const vb = svg.viewBox.baseVal;
   const img = new Image(), scale = 2;
   img.onload = () => {
     const c = document.createElement("canvas"); c.width = vb.width * scale; c.height = vb.height * scale;
     const g = c.getContext("2d"); g.drawImage(img, 0, 0, c.width, c.height);
-    c.toBlob(b => download(`matrix_${$("#fCode").value.replace(/[^\w-]+/g, "_")}.png`, b));
+    c.toBlob(b => download(`${name}_${$("#fCode").value.replace(/[^\w-]+/g, "_")}.png`, b));
   };
   const cl = svg.cloneNode(true); cl.setAttribute("width", vb.width); cl.setAttribute("height", vb.height);
   img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(new XMLSerializer().serializeToString(cl));
-};
+}
+$("#png").onclick = () => { savePNG($("#matrix svg"), "matrix"); setTimeout(() => savePNG($("#graph svg"), "how_what"), 600); };
 $("#xls").onclick = () => {
   const list = current();
   const cell = v => { v = String(v ?? ""); return /[",\n\r;]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };

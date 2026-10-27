@@ -9,3 +9,4 @@ Owner: Patrik (Patriks313), non-technical — make technical calls yourself, ask
 - RAG defaults: amber ≥50%, green ≥80% (adjustable in the summary).
 - Source of truth for question wording: Finance_excellence_V6.docx section 5 (in the claude.ai project "Finance excellence"). Keep tool and doc in sync.
 - Claude cannot toggle Pages settings via API; Patrik does that in the browser.
+- Scoring (decided 2026-10-27): How per process = average of the three pillar scores (equal pillars, not pooled answers); cell and column scores = share of good answers. What = % deliverables in place. Summary shows the matrix plus a How/What bubble graph (x = What %, y = How %, dashed RAG threshold lines); "Save pictures" exports both PNGs. Long-term aim: same number of questions per pillar.
