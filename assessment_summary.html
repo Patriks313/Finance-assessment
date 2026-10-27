@@ -74,7 +74,7 @@ details summary{cursor:pointer;font-weight:600;color:var(--navyd);padding:6px 0}
   <span class="sw" style="background:var(--amber)"></span>amber ·
   <span class="sw" style="background:var(--red)"></span>red ·
   <span class="sw" style="background:var(--grey)"></span>no answers.
-  Cell and column scores are the share of answers that indicate excellence. <b>How</b> (circle on the arrow) = average of the three pillar scores for the process, each pillar counting equally. <b>What</b> = deliverables in place: counted only when both CEO and CFO answer yes (all roles, not affected by the role filter).</p>
+  Cell scores are the share of answers that indicate excellence. <b>How</b> (circle on the arrow) = average of the three pillar scores for the process, each pillar counting equally. <b>Pillar total</b> (circle at the bottom) = average of the four process scores in that column, each process counting equally. <b>What</b> = deliverables in place: counted only when both CEO and CFO answer yes (all roles, not affected by the role filter).</p>
 </div>
 
 <div class="card"><h2>How / What</h2><div id="graph"></div>
@@ -400,11 +400,13 @@ function render() {
   const data = {
     cells: BANK.processes.map(p => BANK.pillars.map(pil => score(qs.filter(r => r.process === p.name && r.pillar === pil)))),
     rows: null,
-    cols: BANK.pillars.map(pil => score(qs.filter(r => r.pillar === pil))),
+    cols: null,
     what: BANK.processes.map(p => whatScore(p, codeRows()))
   };
   // How per process = equal-pillar average of the pillar scores that have answers
   data.rows = data.cells.map(c => { const v = c.filter(x => x != null); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; });
+  // Pillar total = equal-process average of that pillar's cells that have answers
+  data.cols = BANK.pillars.map((_, i) => { const v = data.cells.map(c => c[i]).filter(x => x != null); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; });
   $("#matrix").innerHTML = matrixSVG(data);
   $("#graph").innerHTML = graphSVG(data);
   renderDetails(list);
